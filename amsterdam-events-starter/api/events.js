@@ -101,7 +101,7 @@ function inNextWeek(event) {
 }
 
 module.exports = async function handler(_req, res) {
-  res.setHeader('Cache-Control', 's-maxage=900, stale-while-revalidate=3600');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
   const today = new Date().toISOString().slice(0, 10);
   const cityUrl = new URL(SOURCES.city.url);
   cityUrl.searchParams.set('startdatum[gte]', today);
