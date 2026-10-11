@@ -52,17 +52,19 @@ function eventDate(text) {
 }
 
 function parseArtAhead(xml) {
-  const blocks = xml.match(/<(?:item|entry)\b[^>]*>[\s\S]*?<\/(?:item|entry)>/gi) || [];
+  const blocks = xml.match(/<(?:item|entry)\\b[^>]*>[\\s\\S]*?<\\/(?:item|entry)>/gi) || [];
   return blocks.map((block, index) => {
     const title = xmlValue(block, 'title');
     const description = xmlValue(block, 'description') || xmlValue(block, 'summary') || xmlValue(block, 'content:encoded');
-    const combined = `${title} ${description}`;
+    // Location and date can be published in separate RSS fields; include all item text.
+    const itemText = decodeXml(block);
     const url = safeUrl(xmlValue(block, 'link') || xmlValue(block, 'guid'));
-    const date = eventDate(combined);
+    const date = eventDate(description) || eventDate(itemText);
+    const venue = xmlValue(block, 'location') || xmlValue(block, 'venue');
     // Art Ahead's feed covers multiple Dutch cities; keep Amsterdam entries only.
-    if (!/Amsterdam/i.test(combined) || !title || !url) return null;
+    if (!/Amsterdam/i.test(itemText) || !title || !url) return null;
     return {
-      id: `art-${url || index}`, title, date: date || 'Date TBA', venue: '', price: '',
+      id: `art-${url || index}`, title, date: date || 'Date TBA', venue, price: '',
       url, category: 'art', source: SOURCES.art.name,
     };
   }).filter(Boolean);
