@@ -11,8 +11,9 @@ A dependency-free Vercel static page, serverless API, and Scriptable iPhone widg
 
 ## Data-source status
 
-- **Jazz in Amsterdam:** the site publicly documents `https://jazzin.amsterdam/api`. The API handler consumes that public endpoint and normalizes common event fields. Its exact schema could not be independently fetched in this environment, so verify the response shape before relying on this connector.
-- **Art Ahead:** public event listings are visible at `https://artahead.nl`, but no supported public API or feed was verified. Kept as a source link; no HTML scraping is enabled.
-- **Resident Advisor:** the public Amsterdam listings page is linked, but no permitted public event API/feed was verified. No private endpoints, browser impersonation, or scraping is used.
+- **Jazz in Amsterdam:** the API reads the public JSON calendar `jazzAmsterdam`.
+- **Jazz in Amsterdam · Club:** the API reads the separate public JSON calendar `clubAmsterdam` and lists its events under Club.
+- **Art Ahead:** the API reads the public RSS feed at `https://artahead.nl/feed.xml` and keeps ongoing/upcoming Amsterdam exhibitions.
+- **Resident Advisor:** its Amsterdam listings page is linked; no permitted public API/feed was verified, so it remains link-only.
 
-The page displays only events actually returned by the Jazz API; it has no demo events. Incomplete sources are deliberately shown as links rather than represented as connected.
+The page shows events returned by the connected public feeds; it has no demo events.
