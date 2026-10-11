@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101010"><title>Amsterdam Events</title>
+<style>
+:root{color-scheme:dark;--bg:#101010;--card:#1a1a1a;--muted:#aaa;--accent:#d4ff59}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f5f5;font:16px/1.5 system-ui,sans-serif}main{max-width:850px;margin:auto;padding:40px 22px}header{display:flex;justify-content:space-between;align-items:end;gap:16px;margin-bottom:24px}h1{font-size:clamp(2rem,7vw,4rem);line-height:1;margin:0;letter-spacing:-.06em}.eyebrow{color:var(--accent);text-transform:uppercase;letter-spacing:.14em;font-size:.75rem}select{background:var(--card);color:white;border:1px solid #444;padding:10px;border-radius:8px}#events{display:grid;gap:12px}.event{background:var(--card);padding:18px;border-radius:14px;display:grid;gap:6px}.meta{color:var(--muted);font-size:.9rem}.event a{color:var(--accent);text-decoration:none;font-weight:600}.status{color:var(--muted);padding:28px 4px}.source{font-size:.75rem;color:#888;text-transform:uppercase;letter-spacing:.08em}footer{margin-top:32px;color:#888;font-size:.85rem}a{color:inherit}
+</style></head><body><main><header><div><div class="eyebrow">Amsterdam · Culture & nightlife</div><h1>What’s on</h1></div><select id="filter" aria-label="Filter events"><option value="all">All events</option><option value="jazz">Jazz</option><option value="art">Art</option><option value="club">Club</option></select></header><section id="events" aria-live="polite"><div class="status">Loading events…</div></section><footer>Always check the organizer’s page for the latest time and ticket information.</footer></main>
+<script>
+const list=document.querySelector('#events'),filter=document.querySelector('#filter');let items=[];
+function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(){const visible=items.filter(e=>filter.value==='all'||e.category===filter.value);list.innerHTML=visible.length?visible.map(e=>`<article class="event"><div class="source">${esc(e.source)} · ${esc(e.category)}</div><strong>${esc(e.title)}</strong><div class="meta">${esc(e.date||'Date TBA')}${e.venue?' · '+esc(e.venue):''}</div>${e.url?`<a href="${esc(e.url)}" target="_blank" rel="noopener">Event details ↗</a>`:''}</article>`).join(''):'<div class="status">No confirmed events available right now. Open a source below to browse its listings.</div>'}
+async function load(){try{const r=await fetch('/api/events');if(!r.ok)throw Error();const d=await r.json();items=Array.isArray(d.events)?d.events:[];render()}catch{list.innerHTML='<div class="status">Could not load events. Try again later, or browse <a href="https://jazzin.amsterdam">Jazz in Amsterdam</a>, <a href="https://artahead.nl">Art Ahead</a> or <a href="https://ra.co/events/nl/amsterdam">RA</a>.</div>'}}
+filter.addEventListener('change',render);load();
+</script></body></html>
