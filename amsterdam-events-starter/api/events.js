@@ -52,7 +52,7 @@ function eventDate(text) {
 }
 
 function parseArtAhead(xml) {
-  const blocks = xml.match(/<(?:item|entry)\\b[^>]*>[\\s\\S]*?<\\/(?:item|entry)>/gi) || [];
+  const blocks = xml.match(/<(?:item|entry)\b[^>]*>[\s\S]*?<\/(?:item|entry)>/gi) || [];
   return blocks.map((block, index) => {
     const title = xmlValue(block, 'title');
     const description = xmlValue(block, 'description') || xmlValue(block, 'summary') || xmlValue(block, 'content:encoded');
