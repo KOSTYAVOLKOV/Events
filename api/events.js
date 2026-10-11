@@ -2,7 +2,8 @@ const SOURCES = {
   jazz: { id: 'jazz', name: 'Jazz in Amsterdam', url: 'https://jazzin.amsterdam/api?calendar=jazzAmsterdam&page=1&archive=false' },
   art: { id: 'art', name: 'Art Ahead', url: 'https://artahead.nl/feed.xml' },
   city: { id: 'city', name: 'Gemeente Amsterdam', url: 'https://api.data.amsterdam.nl/v1/evenementen/v1/evenementen' },
-  club: { id: 'club', name: 'Resident Advisor', url: 'https://ra.co/events/nl/amsterdam' },
+  club: { id: 'club', name: 'Jazz in Amsterdam · Club', url: 'https://jazzin.amsterdam/api?calendar=clubAmsterdam&page=1&archive=false' },
+  ra: { id: 'ra', name: 'Resident Advisor', url: 'https://ra.co/events/nl/amsterdam' },
 };
 
 const safeUrl = value => {
@@ -10,17 +11,17 @@ const safeUrl = value => {
   catch { return ''; }
 };
 
-function parseJazz(payload) {
+function parseJazz(payload, category = 'jazz', sourceName = SOURCES.jazz.name) {
   const rows = Array.isArray(payload) ? payload : Array.isArray(payload?.events) ? payload.events : [];
   return rows.map(event => ({
-    id: String(event.id ?? `jazz-${event.title ?? ''}-${event.date ?? ''}`),
+    id: String(event.id ?? `${category}-${event.title ?? ''}-${event.date ?? ''}`),
     title: String(event.title ?? '').trim(),
     date: [event.date, event.time].filter(Boolean).join(' '),
     venue: String(event.venue ?? ''),
     price: String(event.price ?? ''),
     url: safeUrl(event.site ?? ''),
-    category: 'jazz',
-    source: SOURCES.jazz.name,
+    category,
+    source: sourceName,
   })).filter(event => event.title && event.date);
 }
 
@@ -113,10 +114,14 @@ module.exports = async function handler(_req, res) {
   const today = new Date().toISOString().slice(0, 10);
   const cityUrl = new URL(SOURCES.city.url);
   cityUrl.searchParams.set('startdatum[gte]', today);
-  const [jazzResult, artResult, cityResult] = await Promise.allSettled([
+  const [jazzResult, artResult, cityResult, clubResult] = await Promise.allSettled([
     fetch(SOURCES.jazz.url, { headers: { Accept: 'application/json' } }).then(async response => {
       if (!response.ok) throw new Error(`Jazz API HTTP ${response.status}`);
       return parseJazz(await response.json());
+    }),
+    fetch(SOURCES.club.url, { headers: { Accept: 'application/json' } }).then(async response => {
+      if (!response.ok) throw new Error(`Jazz club API HTTP ${response.status}`);
+      return parseJazz(await response.json(), 'club', SOURCES.club.name);
     }),
     fetch(SOURCES.art.url, { headers: { Accept: 'application/rss+xml, application/xml, text/xml' } }).then(async response => {
       if (!response.ok) throw new Error(`Art Ahead RSS HTTP ${response.status}`);
@@ -131,13 +136,15 @@ module.exports = async function handler(_req, res) {
   const jazz = jazzResult.status === 'fulfilled' ? jazzResult.value : [];
   const art = artResult.status === 'fulfilled' ? artResult.value : [];
   const city = cityResult.status === 'fulfilled' ? cityResult.value : [];
-  const events = [...jazz, ...art, ...city].filter(inNextWeek)
+  const club = clubResult.status === 'fulfilled' ? clubResult.value : [];
+  const events = [...jazz, ...art, ...city, ...club].filter(inNextWeek)
     .sort((a, b) => new Date(a.endDate || a.date) - new Date(b.endDate || b.date));
   const statuses = [
     { ...SOURCES.jazz, status: jazzResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
     { ...SOURCES.art, status: artResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
     { ...SOURCES.city, status: cityResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
-    { ...SOURCES.club, status: 'link-only' },
+    { ...SOURCES.club, status: clubResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
+    { ...SOURCES.ra, status: 'link-only' },
   ];
 
   return res.status(200).json({ events, sources: statuses, updatedAt: new Date().toISOString() });
