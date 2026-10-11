@@ -1,6 +1,7 @@
 const SOURCES = {
   jazz: { id: 'jazz', name: 'Jazz in Amsterdam', url: 'https://jazzin.amsterdam/api?calendar=jazzAmsterdam&page=1&archive=false' },
   art: { id: 'art', name: 'Art Ahead', url: 'https://artahead.nl/feed.xml' },
+  city: { id: 'city', name: 'Gemeente Amsterdam', url: 'https://api.data.amsterdam.nl/v1/evenementen/v1/evenementen' },
   club: { id: 'club', name: 'Resident Advisor', url: 'https://ra.co/events/nl/amsterdam' },
 };
 
@@ -67,6 +68,30 @@ function parseArtAhead(xml) {
   }).filter(Boolean);
 }
 
+function records(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.results)) return payload.results;
+  if (Array.isArray(payload?._embedded?.evenementen)) return payload._embedded.evenementen;
+  if (Array.isArray(payload?.evenementen)) return payload.evenementen;
+  return [];
+}
+
+function parseCityEvents(payload) {
+  return records(payload).map(event => {
+    const date = [event.startdatum, event.starttijd].filter(Boolean).join(' ');
+    return {
+      id: `city-${event.id ?? event.url ?? event.titel}`,
+      title: String(event.titel ?? '').trim(),
+      date,
+      venue: '',
+      price: '',
+      url: safeUrl(event.url ?? ''),
+      category: 'events',
+      source: SOURCES.city.name,
+    };
+  }).filter(event => event.title && event.date);
+}
+
 function inNextWeek(event) {
   const date = new Date(event.date);
   if (Number.isNaN(date.valueOf())) return event.date === 'Date TBA';
@@ -77,7 +102,10 @@ function inNextWeek(event) {
 
 module.exports = async function handler(_req, res) {
   res.setHeader('Cache-Control', 's-maxage=900, stale-while-revalidate=3600');
-  const [jazzResult, artResult] = await Promise.allSettled([
+  const today = new Date().toISOString().slice(0, 10);
+  const cityUrl = new URL(SOURCES.city.url);
+  cityUrl.searchParams.set('startdatum[gte]', today);
+  const [jazzResult, artResult, cityResult] = await Promise.allSettled([
     fetch(SOURCES.jazz.url, { headers: { Accept: 'application/json' } }).then(async response => {
       if (!response.ok) throw new Error(`Jazz API HTTP ${response.status}`);
       return parseJazz(await response.json());
@@ -86,15 +114,21 @@ module.exports = async function handler(_req, res) {
       if (!response.ok) throw new Error(`Art Ahead RSS HTTP ${response.status}`);
       return parseArtAhead(await response.text());
     }),
+    fetch(cityUrl, { headers: { Accept: 'application/json' } }).then(async response => {
+      if (!response.ok) throw new Error(`Amsterdam events API HTTP ${response.status}`);
+      return parseCityEvents(await response.json());
+    }),
   ]);
 
   const jazz = jazzResult.status === 'fulfilled' ? jazzResult.value : [];
   const art = artResult.status === 'fulfilled' ? artResult.value : [];
-  const events = [...jazz, ...art].filter(inNextWeek)
+  const city = cityResult.status === 'fulfilled' ? cityResult.value : [];
+  const events = [...jazz, ...art, ...city].filter(inNextWeek)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   const statuses = [
     { ...SOURCES.jazz, status: jazzResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
     { ...SOURCES.art, status: artResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
+    { ...SOURCES.city, status: cityResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
     { ...SOURCES.club, status: 'link-only' },
   ];
 
