@@ -52,13 +52,13 @@ function eventDate(text) {
 }
 
 function parseArtAhead(xml) {
-  const blocks = xml.match(/<(?:item|entry)\\b[^>]*>[\\s\\S]*?<\\/(?:item|entry)>/gi) || [];
+  const blocks = xml.match(/<(?:item|entry)\b[^>]*>[\s\S]*?<\/(?:item|entry)>/gi) || [];
   return blocks.map((block, index) => {
     const title = xmlValue(block, 'title');
     const description = xmlValue(block, 'description') || xmlValue(block, 'summary') || xmlValue(block, 'content:encoded');
     const itemText = decodeXml(block);
     const url = safeUrl(xmlValue(block, 'link') || xmlValue(block, 'guid'));
-    const dateValues = description.match(/\\b20\\d{2}-\\d{2}-\\d{2}\\b/g) || itemText.match(/\\b20\\d{2}-\\d{2}-\\d{2}\\b/g) || [];
+    const dateValues = description.match(/\b20\d{2}-\d{2}-\d{2}\b/g) || itemText.match(/\b20\d{2}-\d{2}-\d{2}\b/g) || [];
     const date = dateValues[0] || eventDate(description) || eventDate(itemText);
     const endDate = dateValues[1] || date;
     const parts = description.split('·').map(part => part.trim());
@@ -102,7 +102,7 @@ function inNextWeek(event) {
   const now = new Date();
   const until = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const endValue = event.endDate || event.date;
-  const end = /^\\d{4}-\\d{2}-\\d{2}$/.test(endValue)
+  const end = /^\d{4}-\d{2}-\d{2}$/.test(endValue)
     ? new Date(`${endValue}T23:59:59`)
     : new Date(endValue);
   return start <= until && end >= now;
