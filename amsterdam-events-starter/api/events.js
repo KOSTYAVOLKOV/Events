@@ -52,19 +52,21 @@ function eventDate(text) {
 }
 
 function parseArtAhead(xml) {
-  const blocks = xml.match(/<(?:item|entry)\b[^>]*>[\s\S]*?<\/(?:item|entry)>/gi) || [];
+  const blocks = xml.match(/<(?:item|entry)\\b[^>]*>[\\s\\S]*?<\\/(?:item|entry)>/gi) || [];
   return blocks.map((block, index) => {
     const title = xmlValue(block, 'title');
     const description = xmlValue(block, 'description') || xmlValue(block, 'summary') || xmlValue(block, 'content:encoded');
-    // Location and date can be published in separate RSS fields; include all item text.
     const itemText = decodeXml(block);
     const url = safeUrl(xmlValue(block, 'link') || xmlValue(block, 'guid'));
-    const date = eventDate(description) || eventDate(itemText);
-    const venue = xmlValue(block, 'location') || xmlValue(block, 'venue');
-    // Art Ahead's feed covers multiple Dutch cities; keep Amsterdam entries only.
+    const dateValues = description.match(/\\b20\\d{2}-\\d{2}-\\d{2}\\b/g) || itemText.match(/\\b20\\d{2}-\\d{2}-\\d{2}\\b/g) || [];
+    const date = dateValues[0] || eventDate(description) || eventDate(itemText);
+    const endDate = dateValues[1] || date;
+    const parts = description.split('·').map(part => part.trim());
+    const venue = xmlValue(block, 'location') || xmlValue(block, 'venue') || (parts.length > 1 ? parts[1] : '');
     if (!/Amsterdam/i.test(itemText) || !title || !url) return null;
     return {
-      id: `art-${url || index}`, title, date: date || 'Date TBA', venue, price: '',
+      id: `art-${url || index}`, title, date: date || 'Date TBA',
+      ...(endDate ? { endDate } : {}), venue, price: '',
       url, category: 'art', source: SOURCES.art.name,
     };
   }).filter(Boolean);
@@ -95,11 +97,15 @@ function parseCityEvents(payload) {
 }
 
 function inNextWeek(event) {
-  const date = new Date(event.date);
-  if (Number.isNaN(date.valueOf())) return event.date === 'Date TBA';
+  const start = new Date(event.date);
+  if (Number.isNaN(start.valueOf())) return event.date === 'Date TBA';
   const now = new Date();
   const until = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  return date >= now && date <= until;
+  const endValue = event.endDate || event.date;
+  const end = /^\\d{4}-\\d{2}-\\d{2}$/.test(endValue)
+    ? new Date(`${endValue}T23:59:59`)
+    : new Date(endValue);
+  return start <= until && end >= now;
 }
 
 module.exports = async function handler(_req, res) {
@@ -126,7 +132,7 @@ module.exports = async function handler(_req, res) {
   const art = artResult.status === 'fulfilled' ? artResult.value : [];
   const city = cityResult.status === 'fulfilled' ? cityResult.value : [];
   const events = [...jazz, ...art, ...city].filter(inNextWeek)
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+    .sort((a, b) => new Date(a.endDate || a.date) - new Date(b.endDate || b.date));
   const statuses = [
     { ...SOURCES.jazz, status: jazzResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
     { ...SOURCES.art, status: artResult.status === 'fulfilled' ? 'connected' : 'unavailable' },
