@@ -1,5 +1,5 @@
 // Scriptable home-screen widget. Set API_URL to your deployed Vercel URL + /api/events.
-const API_URL = 'https://YOUR-VERCEL-DOMAIN.vercel.app/api/events';
+const API_URL = 'https://events-amsterdam-events-starter.vercel.app/api/events';
 const req = new Request(API_URL);
 req.timeoutInterval = 15;
 const widget = new ListWidget();
@@ -18,7 +18,7 @@ try {
     if(i<events.length-1) widget.addSpacer(7);
   }
 } catch (_) { const t=widget.addText('Could not load events'); t.textColor=Color.white(); t.font=Font.systemFont(13); }
-widget.url = 'https://YOUR-VERCEL-DOMAIN.vercel.app';
+widget.url = 'https://events-amsterdam-events-starter.vercel.app';
 widget.refreshAfterDate = new Date(Date.now()+30*60*1000);
 if (config.runsInWidget) Script.setWidget(widget); else await widget.presentMedium();
 Script.complete();
